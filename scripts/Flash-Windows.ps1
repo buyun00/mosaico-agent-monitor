@@ -7,7 +7,11 @@ $flashArguments=@('--chip','esp32s31','--port',$Port,'--no-stub','--before','def
 foreach($image in $manifest.images){
   $imagePath=[IO.Path]::GetFullPath((Join-Path $imageRoot $image.file))
   if(-not $imagePath.StartsWith([IO.Path]::GetFullPath($imageRoot)+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw 'Image path is outside the package'}
-  if((Get-FileHash -LiteralPath $imagePath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $image.sha256){throw 'Image checksum mismatch'}
+  $imageStream=[IO.File]::OpenRead($imagePath)
+  $imageHasher=[Security.Cryptography.SHA256]::Create()
+  try{$imageHash=[BitConverter]::ToString($imageHasher.ComputeHash($imageStream)).Replace('-','').ToLowerInvariant()}
+  finally{$imageStream.Dispose();$imageHasher.Dispose()}
+  if($imageHash -ne $image.sha256){throw 'Image checksum mismatch'}
   $flashArguments+=@($image.offset,$imagePath)
 }
 if($Check){Write-Output 'Verified four images. NVS and PHY will be preserved. No device access performed.';return}
