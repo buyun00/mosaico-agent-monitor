@@ -1,0 +1,20 @@
+#include <stdio.h>
+#include "board.h"
+#include "config.h"
+#include "display.h"
+#include "imu.h"
+#include "dashboard.h"
+#include "quota_network.h"
+#include "ambience.h"
+#include "touch_input.h"
+#include "driver/gpio.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "tinyusb.h"
+#include "tinyusb_cdc_acm.h"
+#include "tinyusb_console.h"
+#include "tinyusb_default_config.h"
+static void sensors(void *arg){sim_forces_t f={0};int64_t pressed=0,last=esp_timer_get_time();for(;;){int64_t now=esp_timer_get_time();if(imu_read((now-last)*1e-6f,&f))dashboard_gravity(f.gravity[0],f.gravity[1]);last=now;if(board_take_wave_toggle())dashboard_next();interaction_t t=touch_input_poll(now/1000);if(t.double_tap)dashboard_next();if(gpio_get_level(7)==0){if(!pressed)pressed=now;if(now-pressed>3000000)quota_network_request_setup();}else pressed=0;vTaskDelay(pdMS_TO_TICKS(20));}}
+void app_main(void){tinyusb_config_t usb=TINYUSB_DEFAULT_CONFIG();ESP_ERROR_CHECK(tinyusb_driver_install(&usb));const tinyusb_config_cdcacm_t cdc={.cdc_port=TINYUSB_CDC_ACM_0};ESP_ERROR_CHECK(tinyusb_cdcacm_init(&cdc));ESP_ERROR_CHECK(tinyusb_console_init(TINYUSB_CDC_ACM_0));setvbuf(stdout,NULL,_IONBF,0);i2c_master_bus_handle_t bus;ESP_ERROR_CHECK(board_init(&bus));ESP_ERROR_CHECK(display_init());ESP_ERROR_CHECK(display_set_brightness(DISPLAY_BRIGHTNESS_PCT*255/100));esp_err_t e=imu_init(bus);ESP_LOGI("monitor","IMU %s",esp_err_to_name(e));dashboard_init();ambience_init();e=touch_input_init(bus);ESP_LOGI("monitor","Touch %s",esp_err_to_name(e));quota_network_start();ESP_ERROR_CHECK(xTaskCreatePinnedToCore(sensors,"sensors",4096,NULL,5,NULL,1)==pdPASS?ESP_OK:ESP_ERR_NO_MEM);ESP_LOGI("monitor","Mosaico Agent Monitor 0.15.0 ready; animation timeline 30 FPS");TickType_t tick=xTaskGetTickCount();unsigned pace=0;int64_t report=esp_timer_get_time();for(;;){dashboard_frame();int64_t now=esp_timer_get_time();if(now-report>3000000){display_stats_t stats=display_take_stats();ESP_LOGI("monitor","%.1f fps, %lu frames, %lu underruns, wait %lu us/frame, transfer %lu us/frame",stats.frames*1000000.f/(now-report),(unsigned long)stats.frames,(unsigned long)stats.underruns,(unsigned long)(stats.frames?stats.scan_wait_us/stats.frames:0),(unsigned long)(stats.frames?stats.transfer_us/stats.frames:0));report=now;}vTaskDelayUntil(&tick,pdMS_TO_TICKS((pace++%3)==0?34:33));}}

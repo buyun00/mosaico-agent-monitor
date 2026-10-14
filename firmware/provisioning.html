@@ -1,0 +1,19 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mosaico 配网</title><style>body{font:16px system-ui;max-width:520px;margin:32px auto;padding:0 22px;background:#14191c;color:#f3ebd2}input,select,button{box-sizing:border-box;width:100%;padding:12px;border:1px solid #b8ded5;border-radius:10px;background:#202b2c;color:#f3ebd2;font:inherit;margin:8px 0}button{cursor:pointer}small{color:#96a6a8}label{display:block;margin-top:16px}a{color:#b8ded5}</style>
+<h1>Mosaico 配网</h1><p>选择电脑所在的 Wi-Fi。配置保存在设备中。</p>
+<button id="scan" type="button">扫描附近 Wi-Fi</button><small id="scan-status" role="status"></small>
+<select id="networks" aria-label="附近的 Wi-Fi"><option value="">选择网络，或在下方手动输入</option></select>
+<form method="post" action="/save"><label>Wi-Fi 名称<input id="ssid" name="ssid" maxlength="32" required autocomplete="off"></label>
+<label>Wi-Fi 密码<input id="password" name="password" type="password" maxlength="63" autocomplete="new-password"></label><small>开放网络可留空；加密网络输入 8–63 字节密码。</small>
+<label>电脑服务地址<input name="url" type="url" maxlength="191" placeholder="http://192.168.1.100:8769/quota" required></label><small>填写电脑启动程序显示的 Device URL。</small>
+<button type="submit">保存并连接</button></form>
+<script>
+const button=document.querySelector('#scan'),list=document.querySelector('#networks'),status=document.querySelector('#scan-status');
+list.onchange=()=>{if(list.value)document.querySelector('#ssid').value=list.value};
+async function scan(){button.disabled=true;status.textContent='正在扫描…';try{
+const response=await fetch('/scan',{signal:AbortSignal.timeout(15000)});if(!response.ok)throw Error();const data=await response.json();
+list.replaceChildren(new Option('选择网络，或在下方手动输入',''));for(const network of data.networks)list.add(new Option(network.ssid+' · '+network.rssi+' dBm'+(network.secure?' · 加密':' · 开放'),network.ssid));
+status.textContent=data.networks.length?'发现 '+data.networks.length+' 个网络':'未发现网络，可以手动输入隐藏网络。';
+}catch{status.textContent='扫描暂不可用，请重试或手动输入。'}finally{button.disabled=false}}
+button.onclick=scan;scan();
+</script></html>

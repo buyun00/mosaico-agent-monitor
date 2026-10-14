@@ -1,0 +1,11 @@
+firmware/build/
+firmware/sdkconfig
+firmware/sdkconfig.old
+firmware/managed_components/
+runtime/
+dist/
+node_modules/
+*.pyc
+__pycache__/
+*.log
+.mosaico-agent-monitor/

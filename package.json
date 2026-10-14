@@ -1,0 +1,6 @@
+{
+  "name": "mosaico-agent-monitor", "version": "0.15.0", "private": true,
+  "type": "module", "engines": {"node": ">=22"},
+  "scripts": {"start": "node host/server.mjs", "setup": "node host/setup.mjs", "test": "node --test tests/*.test.mjs"},
+  "license": "MIT"
+}
